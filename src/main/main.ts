@@ -1,19 +1,23 @@
 // Processus principal Electron : fenêtre, état des instances et pont IPC vers le cœur.
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
-import { readdirSync, readFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { execFile } from "node:child_process";
 import { Adb, InputSession } from "../core/adb";
 import { accelerationHelp, checkAcceleration, launch, nextFreePort, RunningInstance } from "../core/emulator";
 import { setupSdk } from "../core/installer";
 import { applySettings, createInstance, deleteInstance, InstanceSettings, listInstances } from "../core/instances";
 import { KeymapEngine, KeymapProfile, validateProfile } from "../core/keymap";
 import { run } from "../core/run";
-import { DEFAULT_IMAGE, sdkPaths, sdkStatus, SystemImage } from "../core/sdk";
+import { DEFAULT_IMAGE, sdkEnv, sdkPaths, sdkStatus, SystemImage } from "../core/sdk";
 
 const paths = sdkPaths();
 const adb = new Adb(paths, run);
 const running = new Map<string, RunningInstance & { status: "booting" | "ready" }>();
-const input = new Map<string, { session: InputSession; engine: KeymapEngine }>();
+const input = new Map<
+  string,
+  { session: InputSession; engine: KeymapEngine; profile: string; screen: { width: number; height: number } }
+>();
 let win: BrowserWindow | null = null;
 
 const keymapDir = path.join(paths.root, "keymaps");
@@ -30,6 +34,17 @@ function serialOf(id: string): string {
   const r = running.get(id);
   if (!r || r.status !== "ready") throw new Error("L'instance n'est pas démarrée");
   return r.serial;
+}
+
+/** Nom de fichier sûr pour un profil. */
+export function profileFileName(name: string): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${slug || "profil"}.json`;
 }
 
 function loadProfiles(): KeymapProfile[] {
@@ -51,6 +66,18 @@ function loadProfiles(): KeymapProfile[] {
         return [];
       }
     });
+}
+
+/** Capture d'écran de l'instance (sert de fond à l'éditeur de touches). */
+function captureScreen(serial: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      paths.adb,
+      ["-s", serial, "exec-out", "screencap", "-p"],
+      { env: sdkEnv(paths), encoding: "buffer", maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+      (err, stdout) => (err ? reject(err) : resolve(stdout)),
+    );
+  });
 }
 
 function instancesView() {
@@ -145,7 +172,21 @@ function registerIpc() {
     return adb.listGames(serialOf(id));
   });
 
+  ipcMain.handle("screen:capture", async (_e, id: string) => {
+    const png = await captureScreen(serialOf(id));
+    return `data:image/png;base64,${png.toString("base64")}`;
+  });
+
   ipcMain.handle("keymap:profiles", () => loadProfiles());
+  ipcMain.handle("keymap:save", (_e, raw: unknown) => {
+    const profile = validateProfile(raw);
+    mkdirSync(keymapDir, { recursive: true });
+    const file = profileFileName(profile.name);
+    writeFileSync(path.join(keymapDir, file), JSON.stringify(profile, null, 2));
+    // Recharge le moteur des instances qui utilisent ce profil.
+    for (const ctx of input.values()) if (ctx.profile === profile.name) ctx.engine = new KeymapEngine(profile, ctx.screen);
+    return loadProfiles();
+  });
   ipcMain.handle("keymap:openFolder", () => shell.openPath(keymapDir));
   ipcMain.handle("keymap:activate", async (_e, id: string, profileName: string) => {
     const serial = serialOf(id);
@@ -153,7 +194,12 @@ function registerIpc() {
     if (!profile) throw new Error("Profil introuvable");
     const screen = await adb.screenSize(serial);
     input.get(id)?.session.close();
-    input.set(id, { session: adb.openInputSession(serial), engine: new KeymapEngine(profile, screen) });
+    input.set(id, {
+      session: adb.openInputSession(serial),
+      engine: new KeymapEngine(profile, screen),
+      profile: profile.name,
+      screen,
+    });
     return screen;
   });
   ipcMain.on("keymap:key", (_e, id: string, key: string, down: boolean) => {
@@ -175,7 +221,8 @@ function createWindow() {
     minWidth: 960,
     minHeight: 600,
     title: "NovaDroid",
-    backgroundColor: "#0e1116",
+    icon: path.join(__dirname, "..", "icon.png"),
+    backgroundColor: "#15132b",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

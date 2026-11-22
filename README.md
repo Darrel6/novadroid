@@ -1,3 +1,5 @@
+![NovaDroid](assets/banner.png)
+
 # NovaDroid
 
 Lanceur de jeux Android pour PC (Windows en priorité, Linux et macOS aussi). NovaDroid ne
@@ -5,7 +7,13 @@ réinvente pas l'émulation : il pilote l'**émulateur Android officiel open sou
 QEMU) avec les images système Android 15/16, et ajoute par-dessus une interface pensée pour
 les jeux.
 
-![Aperçu de l'interface](docs/apercu.png)
+![Bibliothèque](docs/library.png)
+
+| Premier lancement | Démarrage d'Android |
+| --- | --- |
+| ![Premier lancement](docs/setup.png) | ![Démarrage](docs/booting.png) |
+| **Éditeur de touches** | **Réglages** |
+| ![Éditeur de touches](docs/controls.png) | ![Réglages](docs/settings.png) |
 
 ## Ce que fait le prototype
 
@@ -16,6 +24,12 @@ les jeux.
   sous Linux, HVF sous macOS) et le **rendu GPU de l'hôte** (Vulkan / OpenGL).
 - Installe un jeu par **glisser-déposer d'APK** (APK simples ou en plusieurs morceaux).
 - Liste, lance, ferme et désinstalle les jeux.
+- **Interface pensée pour jouer** : bibliothèque avec pochettes, couleurs qui suivent le jeu
+  sélectionné, navigation aux flèches et Entrée, dépôt d'APK n'importe où dans la fenêtre,
+  premier lancement guidé en trois étapes, réglages par préréglages (Économie, Équilibré,
+  Performance).
+- **Éditeur de touches visuel** : glisse les touches sur l'écran, clique pour changer la touche,
+  capture l'écran du jeu pour placer les commandes au bon endroit.
 - **Clavier et souris** : profils de touches en JSON (joystick ZQSD/WASD, appuis, appuis
   maintenus, touches Android). Les touches sont envoyées à l'instance via un shell ADB
   persistant pour limiter la latence.

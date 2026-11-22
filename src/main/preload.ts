@@ -23,7 +23,9 @@ contextBridge.exposeInMainWorld("nova", {
   stopApp: (id: string, pkg: string) => invoke("apps:stop", id, pkg),
   uninstall: (id: string, pkg: string) => invoke("apps:uninstall", id, pkg),
 
+  captureScreen: (id: string) => invoke("screen:capture", id),
   profiles: () => invoke("keymap:profiles"),
+  saveProfile: (profile: unknown) => invoke("keymap:save", profile),
   openKeymapFolder: () => invoke("keymap:openFolder"),
   activateKeymap: (id: string, name: string) => invoke("keymap:activate", id, name),
   key: (id: string, key: string, down: boolean) => ipcRenderer.send("keymap:key", id, key, down),

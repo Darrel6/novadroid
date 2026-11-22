@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NovaDroid">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a2a8f"/>
+      <stop offset="1" stop-color="#140f33"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.26" r="0.6">
+      <stop offset="0" stop-color="#ff7ac3" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ff7ac3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="trail" x1="150" y1="150" x2="362" y2="362" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#b9a8ff"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ff8fb8"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="116" fill="url(#glow)"/>
+  <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="6"/>
+  <!-- Le N : deux jambages et une diagonale -->
+  <g fill="none" stroke="url(#trail)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 362V150L338 362"/>
+    <path d="M338 362V268"/>
+  </g>
+  <!-- La nova : une étoile à quatre branches qui remplace le haut du N -->
+  <path fill="#ffb3a1" opacity=".55" filter="url(#soft)" d="M338 92c6 44 20 58 64 64-44 6-58 20-64 64-6-44-20-58-64-64 44-6 58-20 64-64Z"/>
+  <path fill="url(#star)" d="M338 92c6 44 20 58 64 64-44 6-58 20-64 64-6-44-20-58-64-64 44-6 58-20 64-64Z"/>
+  <circle cx="404" cy="232" r="9" fill="#ffe08a" opacity=".9"/>
+</svg>

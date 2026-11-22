@@ -75,6 +75,7 @@ test("création, liste et suppression d'instances (avdmanager simulé)", async (
   const list = listInstances(paths);
   assert.equal(list.length, 1);
   assert.equal(list[0].settings.width, 1920);
+  assert.equal(list[0].name, "Ma partie");
   deleteInstance(paths, "Ma_partie");
   assert.equal(listInstances(paths).length, 0);
 });

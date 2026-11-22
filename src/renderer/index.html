@@ -2,95 +2,220 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'" />
   <title>NovaDroid</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <aside class="sidebar">
-    <h1 class="brand"><span class="led" aria-hidden="true"></span>NovaDroid</h1>
-    <section class="sdk" id="sdk"></section>
-    <h2 class="side-title">Instances</h2>
-    <ul id="instances" class="instances"></ul>
-    <form id="new-instance" class="new-instance">
-      <label for="new-name">Nouvelle instance</label>
-      <div class="row">
-        <input id="new-name" placeholder="Ex. Jeux d'action" required maxlength="40" />
-        <button type="submit">Créer</button>
+<body data-view="library">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" fill="currentColor"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="7" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="17" r="2.3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M5 3.8v16.4a.8.8 0 0 0 1.2.7L20 12.7a.8.8 0 0 0 0-1.4L6.2 3.1A.8.8 0 0 0 5 3.8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5.5 3.5 15 13M5.5 20.5 15 11" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  </svg>
+
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand"><img class="mark" src="logo.svg" alt="" />NovaDroid</div>
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" data-go="library" aria-current="page">Bibliothèque</button>
+      <button class="tab" data-go="controls">Touches</button>
+    </nav>
+    <div class="device">
+      <button id="device-btn" class="device-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="dot" id="device-dot"></span>
+        <span class="device-text"><strong id="device-name">Aucun appareil</strong><small id="device-status"></small></span>
+        <svg class="ico sm"><use href="#i-chevron"/></svg>
+      </button>
+      <button id="power-btn" class="icon-btn power" title="Démarrer l'appareil"><svg class="ico"><use href="#i-power"/></svg></button>
+      <div id="device-menu" class="menu" hidden>
+        <ul id="device-list"></ul>
+        <button class="menu-add" id="menu-new"><svg class="ico sm"><use href="#i-plus"/></svg>Nouvel appareil</button>
       </div>
-      <select id="new-image" aria-label="Version d'Android">
-        <option value="35|google_apis_playstore">Android 15 avec Play Store (recommandé)</option>
-        <option value="36|google_apis_playstore">Android 16 avec Play Store</option>
-        <option value="35|default">Android 15 AOSP (sans services Google)</option>
-      </select>
-    </form>
-  </aside>
-
-  <main id="main">
-    <div class="empty" id="empty">
-      <p>Crée une instance à gauche pour commencer. Une instance est un téléphone Android virtuel où tu installes tes jeux.</p>
     </div>
+    <button id="settings-btn" class="icon-btn" title="Réglages"><svg class="ico"><use href="#i-gear"/></svg></button>
+  </header>
 
-    <div id="detail" hidden>
-      <header class="detail-head">
-        <div>
-          <h2 id="d-name"></h2>
-          <p id="d-status" class="status"></p>
-        </div>
-        <div class="actions">
-          <button id="d-start" class="primary">Démarrer</button>
-          <button id="d-stop" hidden>Arrêter</button>
-        </div>
-      </header>
+  <main>
+    <!-- Premier lancement -->
+    <section id="view-setup" class="view setup">
+      <img class="setup-logo" src="logo.svg" alt="" />
+      <h1>Tes jeux Android, sur grand écran.</h1>
+      <p class="lede">Trois étapes et tu joues. Tout se fait ici, sans ligne de commande.</p>
+      <ol class="steps">
+        <li class="step" id="step-engine">
+          <div class="step-n">1</div>
+          <div class="step-body">
+            <h3>Installer le moteur Android</h3>
+            <p>Environ 3 Go à télécharger, une seule fois.</p>
+            <div class="step-progress" hidden><div class="bar"><span></span></div><small></small></div>
+          </div>
+          <button class="btn primary" id="setup-engine">Installer</button>
+        </li>
+        <li class="step" id="step-device">
+          <div class="step-n">2</div>
+          <div class="step-body">
+            <h3>Créer ton appareil</h3>
+            <p>Un téléphone Android virtuel, réglé pour les jeux.</p>
+          </div>
+          <button class="btn primary" id="setup-device">Créer</button>
+        </li>
+        <li class="step" id="step-game">
+          <div class="step-n">3</div>
+          <div class="step-body">
+            <h3>Ajouter un jeu</h3>
+            <p>Dépose un fichier APK ou ouvre le Play Store.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="accel-warn" id="accel-warn" hidden></p>
+    </section>
 
-      <section class="panel" id="library">
-        <div class="panel-head">
-          <h3>Bibliothèque</h3>
-          <button id="d-add">Ajouter un APK</button>
-        </div>
-        <div id="drop" class="drop">Dépose un ou plusieurs fichiers .apk ici pour installer un jeu.</div>
-        <ul id="games" class="games"></ul>
-      </section>
-
-      <section class="panel" id="controls">
-        <div class="panel-head">
-          <h3>Clavier et souris</h3>
-          <div class="row">
-            <select id="profile" aria-label="Profil de touches"></select>
-            <button id="profile-folder" class="ghost">Modifier les profils</button>
+    <!-- Bibliothèque -->
+    <section id="view-library" class="view library">
+      <div class="hero" id="hero">
+        <div class="hero-art" id="hero-art"></div>
+        <div class="hero-info">
+          <p class="hero-kicker" id="hero-kicker"></p>
+          <h1 class="hero-title" id="hero-title"></h1>
+          <p class="hero-meta" id="hero-meta"></p>
+          <div class="hero-actions" id="hero-actions"></div>
+          <div class="boot" id="boot" hidden>
+            <div class="boot-bar"><span></span></div>
+            <p id="boot-text">Démarrage de la machine virtuelle…</p>
           </div>
         </div>
-        <p class="hint">Clique dans l'écran ci-dessous puis joue avec le clavier : les touches sont envoyées à l'instance.</p>
-        <div id="pad" class="pad" tabindex="0" aria-label="Zone de contrôle du jeu">
-          <div id="pad-overlay"></div>
-          <p class="pad-idle" id="pad-idle">Clique ici pour activer les touches</p>
-        </div>
-      </section>
+      </div>
 
-      <section class="panel" id="settings">
-        <details>
-          <summary>Réglages de l'instance</summary>
-          <form id="settings-form" class="settings">
-            <label>Mémoire (Mo) <input name="ramMb" type="number" min="2048" max="32768" step="512" /></label>
-            <label>Cœurs CPU <input name="cpuCores" type="number" min="1" max="16" /></label>
-            <label>Largeur <input name="width" type="number" min="480" max="3840" /></label>
-            <label>Hauteur <input name="height" type="number" min="480" max="3840" /></label>
-            <label>Densité (dpi) <input name="dpi" type="number" min="120" max="640" /></label>
-            <label>Stockage (Go) <input name="dataPartitionGb" type="number" min="4" max="256" /></label>
-            <div class="settings-actions">
-              <button type="submit">Enregistrer les réglages</button>
-              <button type="button" id="d-delete" class="danger">Supprimer l'instance</button>
-            </div>
+      <div class="shelf-head">
+        <h2>Tes jeux</h2>
+        <span class="count" id="games-count"></span>
+      </div>
+      <div class="shelf" id="shelf" role="list"></div>
+    </section>
+
+    <!-- Éditeur de touches -->
+    <section id="view-controls" class="view controls">
+      <div class="ctl-bar">
+        <div class="ctl-profile">
+          <label for="profile">Profil</label>
+          <select id="profile"></select>
+          <button class="btn ghost sm" id="profile-new">Nouveau</button>
+        </div>
+        <div class="ctl-add" role="group" aria-label="Ajouter une commande">
+          <button class="chip" data-add="tap">+ Appui</button>
+          <button class="chip" data-add="hold">+ Maintien</button>
+          <button class="chip" data-add="joystick">+ Joystick</button>
+          <button class="chip" data-add="keyevent">+ Touche Android</button>
+        </div>
+        <div class="ctl-save">
+          <button class="btn ghost sm" id="snap" title="Utiliser l'écran du jeu comme fond"><svg class="ico sm"><use href="#i-camera"/></svg>Capturer l'écran</button>
+          <button class="btn primary sm" id="profile-save" disabled>Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="ctl-main">
+        <div class="stage-wrap">
+          <div class="stage" id="stage" tabindex="0" aria-label="Écran du jeu. Clique puis joue au clavier.">
+            <img id="stage-shot" alt="" hidden />
+            <div id="stage-keys"></div>
+            <p class="stage-hint" id="stage-hint">Glisse les touches pour les placer. Clique ici puis joue au clavier pour tester.</p>
+          </div>
+          <div class="softkeys" id="softkeys"></div>
+        </div>
+        <aside class="inspector" id="inspector">
+          <p class="muted" id="insp-empty">Sélectionne une touche sur l'écran pour la modifier.</p>
+          <form id="insp-form" hidden>
+            <label>Nom <input name="label" maxlength="30" placeholder="Ex. Saut" /></label>
+            <div id="insp-keys"></div>
+            <label id="insp-code-wrap">Action Android
+              <select name="code">
+                <option value="KEYCODE_BACK">Retour</option>
+                <option value="KEYCODE_HOME">Accueil</option>
+                <option value="KEYCODE_APP_SWITCH">Applications récentes</option>
+                <option value="KEYCODE_VOLUME_UP">Volume +</option>
+                <option value="KEYCODE_VOLUME_DOWN">Volume −</option>
+              </select>
+            </label>
+            <label id="insp-radius-wrap">Taille du joystick <input type="range" name="radius" min="0.03" max="0.12" step="0.005" /></label>
+            <button type="button" class="btn danger sm" id="insp-delete"><svg class="ico sm"><use href="#i-trash"/></svg>Supprimer</button>
           </form>
-        </details>
-      </section>
-    </div>
+        </aside>
+      </div>
+    </section>
   </main>
 
-  <div id="toast" class="toast" role="status" hidden>
-    <span id="toast-text"></span>
-    <progress id="toast-bar" max="100" hidden></progress>
+  <!-- Réglages -->
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h2>Réglages</h2>
+      <button class="icon-btn" id="drawer-close" title="Fermer"><svg class="ico"><use href="#i-close"/></svg></button>
+    </div>
+    <section class="drawer-sec" id="sec-device">
+      <h3 id="set-name">Appareil</h3>
+      <p class="muted" id="set-image"></p>
+      <div class="presets" role="radiogroup" aria-label="Performances">
+        <button class="preset" role="radio" data-preset="eco"><strong>Économie</strong><small>2 Go, 720p</small></button>
+        <button class="preset" role="radio" data-preset="balanced"><strong>Équilibré</strong><small>4 Go, 1080p</small></button>
+        <button class="preset" role="radio" data-preset="perf"><strong>Performance</strong><small>8 Go, 1080p</small></button>
+      </div>
+      <details class="advanced">
+        <summary>Réglages avancés</summary>
+        <form id="settings-form" class="fields">
+          <label>Mémoire (Mo)<input name="ramMb" type="number" min="2048" max="32768" step="512" /></label>
+          <label>Cœurs CPU<input name="cpuCores" type="number" min="1" max="16" /></label>
+          <label>Largeur<input name="width" type="number" min="480" max="3840" /></label>
+          <label>Hauteur<input name="height" type="number" min="480" max="3840" /></label>
+          <label>Densité (dpi)<input name="dpi" type="number" min="120" max="640" /></label>
+          <label>Stockage (Go)<input name="dataPartitionGb" type="number" min="4" max="256" /></label>
+        </form>
+      </details>
+      <p class="muted small" id="set-locked" hidden>Éteins l'appareil pour changer ses réglages.</p>
+      <div class="drawer-actions">
+        <button class="btn primary" id="settings-save">Enregistrer</button>
+        <button class="btn danger" id="device-delete">Supprimer l'appareil</button>
+      </div>
+    </section>
+    <section class="drawer-sec">
+      <h3>Moteur Android</h3>
+      <ul class="facts" id="engine-facts"></ul>
+    </section>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <!-- Nouvel appareil -->
+  <dialog id="new-dialog" class="modal">
+    <form method="dialog" id="new-form">
+      <h2>Nouvel appareil</h2>
+      <label>Nom<input id="new-name" required maxlength="40" placeholder="Ex. Jeux d'action" autocomplete="off" /></label>
+      <fieldset class="versions">
+        <legend>Version d'Android</legend>
+        <label class="version"><input type="radio" name="img" value="35|google_apis_playstore" checked /><span><strong>Android 15 avec Play Store</strong><small>Le meilleur choix pour la plupart des jeux</small></span></label>
+        <label class="version"><input type="radio" name="img" value="36|google_apis_playstore" /><span><strong>Android 16 avec Play Store</strong><small>La version la plus récente</small></span></label>
+        <label class="version"><input type="radio" name="img" value="35|default" /><span><strong>Android 15 open source</strong><small>Sans services Google</small></span></label>
+      </fieldset>
+      <div class="modal-actions">
+        <button class="btn ghost" value="cancel" formnovalidate>Annuler</button>
+        <button class="btn primary" value="ok">Créer l'appareil</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="dropzone" id="dropzone" hidden>
+    <div class="dropzone-inner">
+      <svg class="ico xl"><use href="#i-plus"/></svg>
+      <p>Dépose pour installer le jeu</p>
+    </div>
   </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="renderer.js"></script>
 </body>

@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS: InstanceSettings = {
 
 export interface Instance {
   id: string;
+  /** Nom choisi par l'utilisateur, avec accents et apostrophes. */
+  name: string;
   path: string;
   image?: string;
   settings: InstanceSettings;
@@ -97,10 +99,11 @@ function configPath(paths: SdkPaths, id: string): string {
   return path.join(paths.avdHome, `${id}.avd`, "config.ini");
 }
 
-export function applySettings(paths: SdkPaths, id: string, s: InstanceSettings): void {
+export function applySettings(paths: SdkPaths, id: string, s: InstanceSettings, displayName?: string): void {
   const file = configPath(paths, id);
   const cfg = existsSync(file) ? parseIni(readFileSync(file, "utf8")) : {};
-  writeFileSync(file, serializeIni({ ...cfg, ...hardwareConfig(s) }));
+  const extra: Record<string, string> = displayName ? { "avd.ini.displayname": displayName.replace(/[\r\n=]/g, " ").trim() } : {};
+  writeFileSync(file, serializeIni({ ...cfg, ...hardwareConfig(s), ...extra }));
 }
 
 export async function createInstance(
@@ -118,8 +121,8 @@ export async function createInstance(
     // avdmanager demande s'il faut un profil matériel personnalisé : on répond non.
     { env: sdkEnv(paths), input: "no\n" },
   );
-  applySettings(paths, id, settings);
-  return { id, path: path.join(paths.avdHome, `${id}.avd`), image: systemImagePackage(img), settings };
+  applySettings(paths, id, settings, name);
+  return { id, name, path: path.join(paths.avdHome, `${id}.avd`), image: systemImagePackage(img), settings };
 }
 
 export function listInstances(paths: SdkPaths): Instance[] {
@@ -132,6 +135,7 @@ export function listInstances(paths: SdkPaths): Instance[] {
       const cfg = parseIni(readFileSync(configPath(paths, id), "utf8"));
       return {
         id,
+        name: cfg["avd.ini.displayname"] || id.replace(/_/g, " "),
         path: path.join(paths.avdHome, `${id}.avd`),
         image: cfg["image.sysdir.1"],
         settings: settingsFromConfig(cfg),
