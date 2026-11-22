@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+  <title>NovaDroid</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <h1 class="brand"><span class="led" aria-hidden="true"></span>NovaDroid</h1>
+    <section class="sdk" id="sdk"></section>
+    <h2 class="side-title">Instances</h2>
+    <ul id="instances" class="instances"></ul>
+    <form id="new-instance" class="new-instance">
+      <label for="new-name">Nouvelle instance</label>
+      <div class="row">
+        <input id="new-name" placeholder="Ex. Jeux d'action" required maxlength="40" />
+        <button type="submit">Créer</button>
+      </div>
+      <select id="new-image" aria-label="Version d'Android">
+        <option value="35|google_apis_playstore">Android 15 avec Play Store (recommandé)</option>
+        <option value="36|google_apis_playstore">Android 16 avec Play Store</option>
+        <option value="35|default">Android 15 AOSP (sans services Google)</option>
+      </select>
+    </form>
+  </aside>
+
+  <main id="main">
+    <div class="empty" id="empty">
+      <p>Crée une instance à gauche pour commencer. Une instance est un téléphone Android virtuel où tu installes tes jeux.</p>
+    </div>
+
+    <div id="detail" hidden>
+      <header class="detail-head">
+        <div>
+          <h2 id="d-name"></h2>
+          <p id="d-status" class="status"></p>
+        </div>
+        <div class="actions">
+          <button id="d-start" class="primary">Démarrer</button>
+          <button id="d-stop" hidden>Arrêter</button>
+        </div>
+      </header>
+
+      <section class="panel" id="library">
+        <div class="panel-head">
+          <h3>Bibliothèque</h3>
+          <button id="d-add">Ajouter un APK</button>
+        </div>
+        <div id="drop" class="drop">Dépose un ou plusieurs fichiers .apk ici pour installer un jeu.</div>
+        <ul id="games" class="games"></ul>
+      </section>
+
+      <section class="panel" id="controls">
+        <div class="panel-head">
+          <h3>Clavier et souris</h3>
+          <div class="row">
+            <select id="profile" aria-label="Profil de touches"></select>
+            <button id="profile-folder" class="ghost">Modifier les profils</button>
+          </div>
+        </div>
+        <p class="hint">Clique dans l'écran ci-dessous puis joue avec le clavier : les touches sont envoyées à l'instance.</p>
+        <div id="pad" class="pad" tabindex="0" aria-label="Zone de contrôle du jeu">
+          <div id="pad-overlay"></div>
+          <p class="pad-idle" id="pad-idle">Clique ici pour activer les touches</p>
+        </div>
+      </section>
+
+      <section class="panel" id="settings">
+        <details>
+          <summary>Réglages de l'instance</summary>
+          <form id="settings-form" class="settings">
+            <label>Mémoire (Mo) <input name="ramMb" type="number" min="2048" max="32768" step="512" /></label>
+            <label>Cœurs CPU <input name="cpuCores" type="number" min="1" max="16" /></label>
+            <label>Largeur <input name="width" type="number" min="480" max="3840" /></label>
+            <label>Hauteur <input name="height" type="number" min="480" max="3840" /></label>
+            <label>Densité (dpi) <input name="dpi" type="number" min="120" max="640" /></label>
+            <label>Stockage (Go) <input name="dataPartitionGb" type="number" min="4" max="256" /></label>
+            <div class="settings-actions">
+              <button type="submit">Enregistrer les réglages</button>
+              <button type="button" id="d-delete" class="danger">Supprimer l'instance</button>
+            </div>
+          </form>
+        </details>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden>
+    <span id="toast-text"></span>
+    <progress id="toast-bar" max="100" hidden></progress>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

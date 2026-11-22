@@ -1,0 +1,13 @@
+{
+  "name": "Défaut (action / MOBA)",
+  "bindings": [
+    { "action": "joystick", "label": "Déplacement", "up": "KeyW", "down": "KeyS", "left": "KeyA", "right": "KeyD", "x": 0.15, "y": 0.75, "radius": 0.06 },
+    { "action": "tap", "label": "Saut", "key": "Space", "x": 0.88, "y": 0.78 },
+    { "action": "tap", "label": "Compétence 1", "key": "KeyQ", "x": 0.72, "y": 0.85 },
+    { "action": "tap", "label": "Compétence 2", "key": "KeyE", "x": 0.78, "y": 0.68 },
+    { "action": "tap", "label": "Compétence 3", "key": "KeyR", "x": 0.86, "y": 0.58 },
+    { "action": "hold", "label": "Tir / attaque", "key": "KeyF", "x": 0.93, "y": 0.62 },
+    { "action": "keyevent", "label": "Retour", "key": "Escape", "code": "KEYCODE_BACK" },
+    { "action": "keyevent", "label": "Accueil", "key": "Home", "code": "KEYCODE_HOME" }
+  ]
+}
