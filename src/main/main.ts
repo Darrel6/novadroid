@@ -134,7 +134,7 @@ function registerIpc() {
       throw new Error("Le moteur Android n'est pas complètement installé. Ouvre les réglages et clique sur « Réparer le moteur Android ».");
     }
     const accel = await checkAcceleration(paths, run).catch(() => undefined);
-    if (accel && !accel.ok) throw new Error(`L'accélération matérielle n'est pas active. ${accelerationHelp()}`);
+    if (accel && !accel.ok) throw new Error(`L'accélération matérielle n'est pas active. ${accelerationHelp()}\n\nRésultat de la vérification :\n${tailLog(accel.details, 10)}`);
     const port = nextFreePort([...running.values()].map((r) => r.port));
     let log = "";
     const gpu = opts?.gpu ?? (process.env.NOVADROID_GPU as any) ?? "host";
