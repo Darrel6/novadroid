@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("nova", {
   sdkStatus: () => invoke("sdk:status"),
   setupSdk: (img?: unknown) => invoke("sdk:setup", img),
   checkAccel: () => invoke("accel:check"),
+  repairSdk: () => invoke("sdk:repair"),
+  instanceLog: (id: string) => invoke("instance:log", id),
 
   listInstances: () => invoke("instances:list"),
   createInstance: (name: string, img?: unknown, settings?: unknown) => invoke("instances:create", name, img, settings),

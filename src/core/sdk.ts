@@ -1,6 +1,6 @@
 // Gestion du SDK Android (outils open source de l'AOSP) : emplacement, détection,
 // téléchargement des outils en ligne de commande et installation des paquets.
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -30,6 +30,8 @@ export function dataRoot(os: HostOS = hostOS(), env: NodeJS.ProcessEnv = process
 
 export interface SdkPaths {
   root: string;
+  /** Dossier où NovaDroid installe Java (requis par sdkmanager et avdmanager). */
+  jdkDir: string;
   sdk: string;
   avdHome: string;
   sdkmanager: string;
@@ -45,6 +47,7 @@ export function sdkPaths(os: HostOS = hostOS(), root = dataRoot(os)): SdkPaths {
   const exe = os === "windows" ? ".exe" : "";
   return {
     root,
+    jdkDir: p.join(root, "jdk"),
     sdk,
     avdHome: p.join(root, "avd"),
     sdkmanager: p.join(sdk, "cmdline-tools", "latest", "bin", `sdkmanager${bat}`),
@@ -54,10 +57,39 @@ export function sdkPaths(os: HostOS = hostOS(), root = dataRoot(os)): SdkPaths {
   };
 }
 
+/** URL du JDK open source Eclipse Temurin 21 (Adoptium). */
+export function jdkUrl(os: HostOS = hostOS(), arch: string = process.arch): string {
+  const a = arch === "arm64" ? "aarch64" : "x64";
+  return `https://api.adoptium.net/v3/binary/latest/21/ga/${os}/${a}/jdk/hotspot/normal/eclipse`;
+}
+
+/** Retrouve le JAVA_HOME du JDK installé par NovaDroid (l'archive contient un sous-dossier versionné). */
+export function findJavaHome(
+  paths: SdkPaths,
+  os: HostOS = hostOS(),
+  exists: (p: string) => boolean = existsSync,
+  list: (p: string) => string[] = (d) => (existsSync(d) ? readdirSync(d) : []),
+): string | undefined {
+  const p = os === "windows" ? path.win32 : path.posix;
+  const java = os === "windows" ? "java.exe" : "java";
+  for (const entry of list(paths.jdkDir)) {
+    const home = os === "mac" ? p.join(paths.jdkDir, entry, "Contents", "Home") : p.join(paths.jdkDir, entry);
+    if (exists(p.join(home, "bin", java))) return home;
+  }
+  return undefined;
+}
+
 /** Variables d'environnement à passer à tous les outils Android. */
 export function sdkEnv(paths: SdkPaths, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const javaHome = findJavaHome(paths);
+  const sep = process.platform === "win32" ? ";" : ":";
+  const pathKey = Object.keys(base).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  const java = javaHome
+    ? { JAVA_HOME: javaHome, [pathKey]: `${path.join(javaHome, "bin")}${sep}${base[pathKey] ?? ""}` }
+    : {};
   return {
     ...base,
+    ...java,
     ANDROID_HOME: paths.sdk,
     ANDROID_SDK_ROOT: paths.sdk,
     ANDROID_AVD_HOME: paths.avdHome,
@@ -65,6 +97,7 @@ export function sdkEnv(paths: SdkPaths, base: NodeJS.ProcessEnv = process.env): 
 }
 
 export interface SdkStatus {
+  java: boolean;
   cmdlineTools: boolean;
   emulator: boolean;
   platformTools: boolean;
@@ -72,6 +105,7 @@ export interface SdkStatus {
 
 export function sdkStatus(paths: SdkPaths, exists: (p: string) => boolean = existsSync): SdkStatus {
   return {
+    java: !!findJavaHome(paths, hostOS(), exists),
     cmdlineTools: exists(paths.sdkmanager),
     emulator: exists(paths.emulator),
     platformTools: exists(paths.adb),

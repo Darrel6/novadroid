@@ -8,8 +8,10 @@ import { Runner, runOk } from "./run";
 import {
   cmdlineToolsUrl,
   ensureDirs,
+  findJavaHome,
   hostOS,
   HostOS,
+  jdkUrl,
   requiredPackages,
   SdkPaths,
   sdkEnv,
@@ -18,7 +20,7 @@ import {
 
 export type Progress = (message: string, percent?: number) => void;
 
-export async function download(url: string, dest: string, onProgress: Progress): Promise<void> {
+export async function download(url: string, dest: string, onProgress: Progress, label = "Téléchargement des outils Android"): Promise<void> {
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Téléchargement impossible (${res.status}) : ${url}`);
   const total = Number(res.headers.get("content-length") ?? 0);
@@ -26,7 +28,7 @@ export async function download(url: string, dest: string, onProgress: Progress):
   const body = Readable.fromWeb(res.body as any);
   body.on("data", (chunk: Buffer) => {
     received += chunk.length;
-    if (total) onProgress("Téléchargement des outils Android", Math.round((received / total) * 100));
+    if (total) onProgress(label, Math.round((received / total) * 100));
   });
   await pipeline(body, createWriteStream(dest));
 }
@@ -35,6 +37,27 @@ export async function download(url: string, dest: string, onProgress: Progress):
 export function unzipCommand(os: HostOS, zip: string, destDir: string): [string, string[]] {
   if (os === "linux") return ["unzip", ["-q", "-o", zip, "-d", destDir]];
   return ["tar", ["-xf", zip, "-C", destDir]];
+}
+
+/** Commande d'extraction de l'archive du JDK (zip sous Windows, tar.gz ailleurs). */
+export function untarJdkCommand(os: HostOS, archive: string, destDir: string): [string, string[]] {
+  if (os === "windows") return ["tar", ["-xf", archive, "-C", destDir]];
+  return ["tar", ["-xzf", archive, "-C", destDir]];
+}
+
+/** Installe Java 21 (Eclipse Temurin, open source) : sdkmanager et avdmanager en ont besoin. */
+export async function installJdk(paths: SdkPaths, runner: Runner, onProgress: Progress): Promise<void> {
+  ensureDirs(paths);
+  const os = hostOS();
+  const archive = path.join(paths.root, os === "windows" ? "jdk.zip" : "jdk.tar.gz");
+  await download(jdkUrl(os), archive, onProgress, "Téléchargement de Java");
+  onProgress("Installation de Java");
+  rmSync(paths.jdkDir, { recursive: true, force: true });
+  mkdirSync(paths.jdkDir, { recursive: true });
+  const [cmd, args] = untarJdkCommand(os, archive, paths.jdkDir);
+  await runOk(runner, cmd, args);
+  rmSync(archive, { force: true });
+  if (!findJavaHome(paths)) throw new Error("Java a été téléchargé mais reste introuvable après l'extraction");
 }
 
 export async function installCmdlineTools(paths: SdkPaths, runner: Runner, onProgress: Progress): Promise<void> {
@@ -96,6 +119,7 @@ export async function setupSdk(
   img: SystemImage,
   onProgress: Progress,
 ): Promise<void> {
+  if (!findJavaHome(paths)) await installJdk(paths, runner, onProgress);
   if (!existsSync(paths.sdkmanager)) await installCmdlineTools(paths, runner, onProgress);
   onProgress("Acceptation des licences du SDK Android");
   await acceptLicenses(paths, runner);

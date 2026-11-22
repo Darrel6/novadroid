@@ -57,6 +57,28 @@ instance, démarre-la, puis dépose un APK dans la bibliothèque.
 Les données sont dans `%LOCALAPPDATA%\NovaDroid` (Windows) ou `~/.local/share/novadroid`
 (Linux). La variable `NOVADROID_HOME` permet de changer cet emplacement.
 
+## Ajouter un jeu
+
+- Clique sur **Ajouter un jeu** (ou la tuile « Ajouter un APK ») et choisis un fichier `.apk`.
+- Ou glisse le fichier `.apk` n'importe où dans la fenêtre.
+- Ou ouvre le **Play Store** depuis la bibliothèque et installe le jeu comme sur un téléphone.
+
+Si l'appareil est éteint, il s'allume tout seul avant l'installation.
+
+## Si l'appareil ne démarre pas
+
+NovaDroid affiche la cause et le détail technique. Les cas les plus fréquents :
+
+- **Accélération matérielle inactive** : active « Plateforme de l'hyperviseur Windows » et la
+  virtualisation dans le BIOS, puis redémarre le PC.
+- **Moteur incomplet** (Java, émulateur ou image système manquants) : Réglages, puis
+  « Réparer le moteur Android ». Java 21 (Eclipse Temurin, open source) est installé
+  automatiquement, car les outils Android en ont besoin.
+- **Problème de carte graphique** : bouton « Réessayer en rendu logiciel », ou option
+  « Rendu logiciel » dans les réglages.
+
+`npm run doctor` affiche aussi un diagnostic complet dans le terminal.
+
 ## Profils de touches
 
 Les profils sont des fichiers `.json` dans le dossier `keymaps` des données (bouton

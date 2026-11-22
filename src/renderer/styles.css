@@ -530,3 +530,14 @@ body[data-view="setup"] .device { visibility: hidden; }
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
   .boot-bar span { animation: none; width: 100%; opacity: .6; }
 }
+
+.boot-error { margin-top: 18px; max-width: 560px; padding: 16px 18px; border-radius: var(--r-md); background: rgba(255, 122, 138, .08); border: 1px solid rgba(255, 122, 138, .35); }
+.boot-error strong { color: var(--danger); }
+.boot-error p { margin: 4px 0 10px; }
+.boot-error pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); max-height: 160px; overflow: auto; margin: 8px 0 0; }
+.boot-error summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.boot-error-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.switch { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 12px; cursor: pointer; }
+.switch input { accent-color: var(--tint); margin-top: 4px; }
+.switch span { display: flex; flex-direction: column; }
+.switch small { color: var(--muted); font-size: 12px; }

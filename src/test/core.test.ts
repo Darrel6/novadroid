@@ -146,3 +146,26 @@ test("profil fourni valide", () => {
   const p = JSON.parse(readFileSync(path.join(__dirname, "..", "..", "keymaps", "fps-moba-defaut.json"), "utf8"));
   assert.equal(validateProfile(p).bindings.length, 8);
 });
+
+test("Java : URL, détection et environnement", async () => {
+  const { jdkUrl, findJavaHome } = await import("../core/sdk");
+  assert.match(jdkUrl("windows", "x64"), /\/21\/ga\/windows\/x64\/jdk\//);
+  const paths = sdkPaths("windows", "C:\\N");
+  const home = findJavaHome(paths, "windows", (p) => p === "C:\\N\\jdk\\jdk-21.0.5+11\\bin\\java.exe", () => ["jdk-21.0.5+11"]);
+  assert.equal(home, "C:\\N\\jdk\\jdk-21.0.5+11");
+  assert.equal(findJavaHome(paths, "windows", () => false, () => []), undefined);
+});
+
+test("guillemets pour les scripts .bat", async () => {
+  const { quoteForCmd } = await import("../core/run");
+  assert.equal(quoteForCmd("--sdk_root=C:\\Users\\Jean Paul\\sdk"), '"--sdk_root=C:\\Users\\Jean Paul\\sdk"');
+  assert.equal(quoteForCmd("platform-tools"), "platform-tools");
+});
+
+test("erreurs de l'émulateur traduites", async () => {
+  const { explainEmulatorFailure, tailLog } = await import("../core/emulator");
+  assert.match(explainEmulatorFailure("ERROR | x86_64 emulation currently requires hardware acceleration!", "win32"), /accélération/);
+  assert.match(explainEmulatorFailure("PANIC: Cannot find AVD system path."), /image système/);
+  assert.match(explainEmulatorFailure("rien de connu"), /arrêté/);
+  assert.equal(tailLog("a\n\nb\nc", 2), "b\nc");
+});

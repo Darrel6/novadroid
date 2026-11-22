@@ -57,7 +57,7 @@ export interface AccelInfo {
 export async function checkAcceleration(paths: SdkPaths, runner: Runner): Promise<AccelInfo> {
   const r = await runner(paths.emulator, ["-accel-check"], { env: sdkEnv(paths), timeoutMs: 30000 });
   const details = (r.stdout + r.stderr).trim();
-  return { ok: r.code === 0 && /is installed and usable|is usable|accel:\s*0/i.test(details), details };
+  return { ok: r.code === 0 || /is installed and usable/i.test(details), details };
 }
 
 /** Conseils affichés si l'accélération n'est pas disponible. */
@@ -69,4 +69,35 @@ export function accelerationHelp(platform: NodeJS.Platform = process.platform): 
     return "Active la virtualisation dans le BIOS et ajoute ton utilisateur au groupe kvm : sudo usermod -aG kvm $USER (puis reconnecte-toi).";
   }
   return "Hypervisor.framework est utilisé automatiquement sur macOS.";
+}
+
+/** Traduit les erreurs connues de l'émulateur en conseils compréhensibles. */
+export function explainEmulatorFailure(log: string, platform: NodeJS.Platform = process.platform): string {
+  const l = log.toLowerCase();
+  if (/whpx|hypervisor|hardware acceleration|accel|vt-x|amd-v|hax|aehd|kvm/.test(l) && /not|unable|fail|require|disabled|unavailable/.test(l)) {
+    return `L'accélération matérielle n'est pas disponible. ${accelerationHelp(platform)}`;
+  }
+  if (/cannot find avd system path|no initial system image|system image.*(not|missing)/.test(l)) {
+    return "L'image système Android de cet appareil n'est pas installée. Clique sur « Réparer le moteur Android » dans les réglages.";
+  }
+  if (/vulkan|opengl|gles|gpu|graphics/.test(l) && /fail|error|crash|unsupported/.test(l)) {
+    return "La carte graphique a refusé le rendu. Mets à jour ton pilote graphique ou active « Rendu logiciel » dans les réglages.";
+  }
+  if (/running multiple emulators with the same avd|already running|lock/.test(l)) {
+    return "Cet appareil est déjà en cours d'exécution. Ferme l'autre fenêtre de l'émulateur puis réessaie.";
+  }
+  if (/not enough (memory|space)|out of memory|insufficient/.test(l)) {
+    return "Pas assez de mémoire ou d'espace disque. Choisis le préréglage « Économie » ou libère de la place.";
+  }
+  return "L'émulateur s'est arrêté pendant le démarrage.";
+}
+
+/** Garde les dernières lignes utiles d'un journal. */
+export function tailLog(log: string, lines = 6): string {
+  return log
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(-lines)
+    .join("\n");
 }

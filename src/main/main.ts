@@ -4,8 +4,8 @@ import { readdirSync, readFileSync, existsSync, mkdirSync, copyFileSync, writeFi
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { Adb, InputSession } from "../core/adb";
-import { accelerationHelp, checkAcceleration, launch, nextFreePort, RunningInstance } from "../core/emulator";
-import { setupSdk } from "../core/installer";
+import { accelerationHelp, checkAcceleration, explainEmulatorFailure, launch, nextFreePort, RunningInstance, tailLog } from "../core/emulator";
+import { installPackages, setupSdk } from "../core/installer";
 import { applySettings, createInstance, deleteInstance, InstanceSettings, listInstances } from "../core/instances";
 import { KeymapEngine, KeymapProfile, validateProfile } from "../core/keymap";
 import { run } from "../core/run";
@@ -19,6 +19,7 @@ const input = new Map<
   { session: InputSession; engine: KeymapEngine; profile: string; screen: { width: number; height: number } }
 >();
 let win: BrowserWindow | null = null;
+const lastLogs = new Map<string, () => string>();
 
 const keymapDir = path.join(paths.root, "keymaps");
 
@@ -93,6 +94,16 @@ function registerIpc() {
     await setupSdk(paths, run, img ?? DEFAULT_IMAGE, progress);
     return sdkStatus(paths);
   });
+  ipcMain.handle("sdk:repair", async (_e, img?: SystemImage) => {
+    // Réinstalle ce qui manque, plus l'image de chaque appareil existant.
+    await setupSdk(paths, run, img ?? DEFAULT_IMAGE, progress);
+    for (const i of listInstances(paths)) {
+      const m = i.image?.match(/android-(\d+)[\\/]+([a-z_]+)[\\/]+([a-z0-9_-]+)/);
+      if (m) await installPackages(paths, run, { api: Number(m[1]), variant: m[2] as any, abi: m[3] as any }, progress);
+    }
+    return sdkStatus(paths);
+  });
+  ipcMain.handle("instance:log", (_e, id: string) => lastLogs.get(id)?.() ?? "");
   ipcMain.handle("accel:check", async () => {
     const info = await checkAcceleration(paths, run);
     return { ...info, help: info.ok ? "" : accelerationHelp() };
@@ -100,6 +111,8 @@ function registerIpc() {
 
   ipcMain.handle("instances:list", () => instancesView());
   ipcMain.handle("instances:create", async (_e, name: string, img?: SystemImage, settings?: InstanceSettings) => {
+    // Installe l'image système choisie si elle manque (Android 16 par exemple).
+    await installPackages(paths, run, img ?? DEFAULT_IMAGE, progress);
     await createInstance(paths, run, name, img ?? DEFAULT_IMAGE, settings);
     return instancesView();
   });
@@ -114,12 +127,22 @@ function registerIpc() {
     return instancesView();
   });
 
-  ipcMain.handle("instance:start", async (_e, id: string, opts?: { coldBoot?: boolean; gpu?: "host" | "auto" }) => {
+  ipcMain.handle("instance:start", async (_e, id: string, opts?: { coldBoot?: boolean; gpu?: "host" | "auto" | "swiftshader_indirect" }) => {
     if (running.has(id)) return instancesView();
+    const status = sdkStatus(paths);
+    if (!status.emulator || !status.platformTools) {
+      throw new Error("Le moteur Android n'est pas complètement installé. Ouvre les réglages et clique sur « Réparer le moteur Android ».");
+    }
+    const accel = await checkAcceleration(paths, run).catch(() => undefined);
+    if (accel && !accel.ok) throw new Error(`L'accélération matérielle n'est pas active. ${accelerationHelp()}`);
     const port = nextFreePort([...running.values()].map((r) => r.port));
-    const inst = launch(paths, id, { port, gpu: opts?.gpu ?? "host", coldBoot: opts?.coldBoot }, (log) =>
-      emit("log", { id, log }),
-    );
+    let log = "";
+    const gpu = opts?.gpu ?? (process.env.NOVADROID_GPU as any) ?? "host";
+    const inst = launch(paths, id, { port, gpu, coldBoot: opts?.coldBoot }, (chunk) => {
+      log = (log + chunk).slice(-20000);
+      emit("log", { id, log: chunk });
+    });
+    lastLogs.set(id, () => log);
     running.set(id, { ...inst, status: "booting" });
     emit("instances", instancesView());
     inst.process.on("exit", () => {
@@ -128,8 +151,13 @@ function registerIpc() {
       input.delete(id);
       emit("instances", instancesView());
     });
+    // Si l'émulateur s'arrête pendant le démarrage, on renvoie tout de suite son erreur.
+    const crashed = new Promise<never>((_res, rej) => {
+      inst.process.once("exit", (code) => rej(new Error(`${explainEmulatorFailure(log)}\n\nDétail (code ${code}) :\n${tailLog(log)}`)));
+      inst.process.once("error", (err) => rej(new Error(`Impossible de lancer l'émulateur : ${err.message}`)));
+    });
     try {
-      await adb.waitForBoot(inst.serial);
+      await Promise.race([adb.waitForBoot(inst.serial), crashed]);
     } catch (err) {
       inst.process.kill();
       throw err;

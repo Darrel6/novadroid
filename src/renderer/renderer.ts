@@ -83,6 +83,8 @@ const ui = {
   selBinding: -1,
   keysLive: false,
   bootStart: 0,
+  bootError: null as string | null,
+  softwareGpu: store.get<boolean>("softwareGpu", false),
 };
 
 // ---------- Utilitaires ----------
@@ -305,25 +307,33 @@ function tickBoot() {
   $("boot-text").textContent = `${step[1]} ${Math.floor(s)} s`;
 }
 
-async function startDevice() {
+async function startDevice(opts: { software?: boolean } = {}): Promise<boolean> {
   const inst = current();
-  if (!inst) return;
+  if (!inst) return false;
+  if (inst.status === "ready") return true;
   ui.bootStart = Date.now();
+  ui.bootError = null;
   inst.status = "booting";
   renderAll();
   clearInterval(bootTimer);
   bootTimer = window.setInterval(tickBoot, 500);
   tickBoot();
-  const list = await attempt(() => nova.start(inst.id), "L'appareil n'a pas pu démarrer");
+  const gpu = opts.software || ui.softwareGpu ? "swiftshader_indirect" : "host";
+  let list: UiInstance[] | undefined;
+  try {
+    list = await nova.start(inst.id, { gpu });
+  } catch (e) {
+    ui.bootError = cleanError(e);
+  }
   clearInterval(bootTimer);
   if (list) ui.instances = list;
   else inst.status = "stopped";
   renderAll();
-  if (list) {
-    toast(`${deviceLabel(inst.id)} est prêt`);
-    await refreshGames();
-    activateProfile();
-  }
+  if (!list) return false;
+  toast(`${deviceLabel(inst.id)} est prêt`);
+  await refreshGames();
+  activateProfile();
+  return true;
 }
 async function stopDevice() {
   const inst = current();
@@ -356,6 +366,7 @@ function renderHero() {
   const actions = $("hero-actions");
   const boot = $("boot");
   actions.replaceChildren();
+  document.querySelector(".boot-error")?.remove();
   boot.hidden = inst?.status !== "booting";
   actions.hidden = inst?.status === "booting";
 
@@ -379,9 +390,13 @@ function renderHero() {
         : `${ui.games.length ? "" : "Allume l'appareil pour retrouver tes jeux. "}${inst.settings.ramMb / 1024} Go de mémoire, ${inst.settings.cpuCores} cœurs, écran ${inst.settings.width}×${inst.settings.height}.`;
     if (inst.status === "stopped") {
       const b = h("button", "btn primary play");
-      b.append(icon("power"), document.createTextNode("Allumer l'appareil"));
-      b.onclick = startDevice;
-      actions.append(b);
+      b.append(icon("power"), document.createTextNode(ui.bootError ? "Réessayer" : "Allumer l'appareil"));
+      b.onclick = () => startDevice();
+      const add = h("button", "btn play");
+      add.append(icon("plus"), document.createTextNode("Ajouter un jeu"));
+      add.onclick = pickApks;
+      actions.append(b, add);
+      if (ui.bootError) renderBootError(actions);
     }
     return;
   }
@@ -435,6 +450,37 @@ function renderHero() {
   actions.append(play, close, keys, del);
 }
 
+/** Panneau d'erreur de démarrage, avec des solutions en un clic. */
+function renderBootError(actions: HTMLElement) {
+  const box = h("div", "boot-error");
+  const [summary, ...rest] = (ui.bootError ?? "").split("\n\n");
+  box.append(h("strong", "", "L'appareil n'a pas démarré"), h("p", "", summary));
+  if (rest.length) {
+    const d = h("details");
+    d.append(h("summary", "", "Détail technique"), h("pre", "", rest.join("\n\n")));
+    box.append(d);
+  }
+  const row = h("div", "boot-error-actions");
+  const soft = h("button", "btn sm", "Réessayer en rendu logiciel");
+  soft.onclick = () => startDevice({ software: true });
+  const repair = h("button", "btn sm ghost", "Réparer le moteur Android");
+  repair.onclick = repairEngine;
+  row.append(soft, repair);
+  box.append(row);
+  actions.after(box);
+}
+
+async function repairEngine() {
+  toast("Réparation du moteur Android…", { detail: "Les éléments manquants sont téléchargés.", sticky: true });
+  const ok = await attempt(() => nova.repairSdk(), "La réparation a échoué");
+  document.querySelectorAll(".toast").forEach((t) => t.remove());
+  if (ok) {
+    ui.bootError = null;
+    toast("Moteur Android réparé", { detail: "Tu peux rallumer l'appareil." });
+    renderAll();
+  }
+}
+
 function relTime(t: number) {
   const m = Math.round((Date.now() - t) / 60000);
   if (m < 1) return "à l'instant";
@@ -466,10 +512,9 @@ function renderShelf() {
   const ready = inst?.status === "ready";
   $("games-count").textContent = ready && ui.games.length ? String(ui.games.length) : "";
   if (!ready) {
-    shelf.append(h("p", "empty-shelf", inst?.status === "booting" ? "Tes jeux apparaîtront dans un instant." : "Allume l'appareil pour voir tes jeux."));
-    return;
+    shelf.append(h("p", "empty-shelf", inst?.status === "booting" ? "Tes jeux apparaîtront dans un instant." : "Tes jeux s'affichent quand l'appareil est allumé. Tu peux déjà en ajouter un : l'appareil s'allumera tout seul."));
   }
-  for (const pkg of sortedGames()) {
+  for (const pkg of ready ? sortedGames() : []) {
     const t = h("button", "tile");
     t.setAttribute("role", "listitem");
     t.setAttribute("aria-selected", String(pkg === ui.selectedGame));
@@ -488,8 +533,11 @@ function renderShelf() {
   const c2 = h("div", "cover");
   c2.append(icon("store", "ico xl"));
   ps.append(c2, h("span", "name", "Play Store"), h("span", "sub", "Trouver des jeux"));
-  ps.onclick = openStore;
-  shelf.append(add, ps);
+  ps.onclick = async () => {
+    if (await startDevice()) openStore();
+  };
+  shelf.append(add);
+  if (inst) shelf.append(ps);
 }
 
 function selectGame(pkg: string) {
@@ -545,12 +593,22 @@ document.addEventListener("keydown", (e) => {
 async function installApks(paths: string[]) {
   const inst = current();
   if (!paths.length) return;
-  if (!inst || inst.status !== "ready") {
-    toast("Allume d'abord l'appareil", { detail: "Les jeux s'installent sur un appareil allumé.", error: true });
+  if (!inst) {
+    toast("Crée d'abord un appareil", { error: true });
     return;
   }
+  if (inst.status !== "ready") {
+    // L'appareil s'allume tout seul, puis le jeu s'installe.
+    toast("Allumage de l'appareil", { detail: "Le jeu s'installera dès qu'Android sera prêt." });
+    if (inst.status === "booting") {
+      while (current()?.status === "booting") await new Promise((r) => setTimeout(r, 1000));
+      if (current()?.status !== "ready") return;
+    } else if (!(await startDevice())) return;
+  }
   const before = new Set(ui.games);
+  const t = toast(`Installation de ${paths.length > 1 ? `${paths.length} fichiers` : "ton jeu"}…`, { sticky: true });
   const list = (await attempt(() => nova.install(inst.id, paths), "Installation impossible")) as string[] | undefined;
+  t.remove();
   if (!list) return;
   ui.games = list;
   const added = list.find((p) => !before.has(p));
@@ -662,6 +720,7 @@ function renderFacts(accel?: { ok: boolean; details?: string }) {
       li.append(h("span", `dot ${ok ? "ready" : ok === false ? "booting" : ""}`), h("span", "", text));
       facts.append(li);
     };
+    row(s.java, s.java ? "Java installé" : "Java manquant");
     row(s.emulator && s.platformTools, s.emulator ? "Émulateur et ADB installés" : "Émulateur non installé");
     if (accel) row(accel.ok, accel.ok ? "Accélération matérielle active" : "Accélération matérielle inactive");
     const li = h("li");
@@ -679,6 +738,13 @@ function openDrawer(open: boolean) {
   }
 }
 $("settings-btn").onclick = () => openDrawer(true);
+$("engine-repair").onclick = repairEngine;
+const swGpu = $<HTMLInputElement>("software-gpu");
+swGpu.checked = ui.softwareGpu;
+swGpu.onchange = () => {
+  ui.softwareGpu = swGpu.checked;
+  store.set("softwareGpu", swGpu.checked);
+};
 $("drawer-close").onclick = () => openDrawer(false);
 $("scrim").onclick = () => openDrawer(false);
 document.querySelectorAll<HTMLButtonElement>(".preset").forEach((b) => {
@@ -1027,7 +1093,7 @@ function renderAll() {
 
 (async () => {
   const s = await attempt(() => nova.sdkStatus());
-  ui.sdkReady = !!(s && s.cmdlineTools && s.emulator && s.platformTools);
+  ui.sdkReady = !!(s && s.java && s.cmdlineTools && s.emulator && s.platformTools);
   ui.instances = ((await attempt(() => nova.listInstances())) ?? []) as UiInstance[];
   renderAll();
   if (ui.sdkReady) checkAccel();

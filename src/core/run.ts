@@ -17,15 +17,19 @@ export interface RunOptions {
   timeoutMs?: number;
 }
 
+/** Met entre guillemets un argument pour cmd.exe s'il contient des espaces ou caractères spéciaux. */
+export function quoteForCmd(arg: string): string {
+  return /[\s&()^|<>"]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg;
+}
+
 export const run: Runner = (cmd, args, opts = {}) =>
   new Promise((resolve, reject) => {
-    const spawnOpts: SpawnOptions = {
-      env: opts.env,
-      // Les scripts .bat de Windows doivent passer par le shell.
-      shell: process.platform === "win32" && cmd.toLowerCase().endsWith(".bat"),
-      windowsHide: true,
-    };
-    const child = spawn(cmd, args, spawnOpts);
+    // Les scripts .bat de Windows doivent passer par le shell, qui ne protège pas les espaces.
+    const viaShell = process.platform === "win32" && cmd.toLowerCase().endsWith(".bat");
+    const spawnOpts: SpawnOptions = { env: opts.env, shell: viaShell, windowsHide: true };
+    const child = viaShell
+      ? spawn(quoteForCmd(cmd), args.map(quoteForCmd), spawnOpts)
+      : spawn(cmd, args, spawnOpts);
     let stdout = "";
     let stderr = "";
     let timer: NodeJS.Timeout | undefined;
